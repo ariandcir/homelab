@@ -1,0 +1,8 @@
+# Shared machine configuration patch for hub-dr.
+machine:
+  network:
+    # TODO(platform): define DR network interfaces and static/DHCP strategy.
+    interfaces: []
+  time:
+    # TODO(platform): set DR NTP servers.
+    servers: []

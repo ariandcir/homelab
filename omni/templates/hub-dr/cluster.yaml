@@ -1,0 +1,64 @@
+# Omni cluster template for disaster recovery hub.
+#
+# Keep this template cloud/provider neutral:
+# - machineClass is optional and environment-specific.
+# - manual `machines` lists are provided as safe defaults.
+#
+# Do not embed secrets in templates; use external secret workflows.
+---
+kind: Cluster
+name: hub-dr
+kubernetes:
+  version: v1.31.0
+talos:
+  version: v1.10.0
+patches:
+  - file: omni/templates/hub-dr/patches/common/00-machine-network.yaml
+---
+kind: ControlPlane
+# machineClass:
+#   name: dr-controlplane
+machines:
+  - 00000000-0000-0000-0000-00000000c001
+  - 00000000-0000-0000-0000-00000000c002
+  - 00000000-0000-0000-0000-00000000c003
+patches:
+  - file: omni/templates/hub-dr/patches/controlplane/10-extra-sans.yaml
+---
+kind: Workers
+name: workers
+# machineClass:
+#   name: dr-worker
+machines:
+  - 00000000-0000-0000-0000-00000000d101
+  - 00000000-0000-0000-0000-00000000d102
+patches:
+  - file: omni/templates/hub-dr/patches/worker/10-kubelet-node-labels.yaml
+updateStrategy:
+  rolling:
+    maxParallelism: 1
+---
+kind: Machine
+name: 00000000-0000-0000-0000-00000000c001
+install:
+  disk: /dev/sda
+---
+kind: Machine
+name: 00000000-0000-0000-0000-00000000c002
+install:
+  disk: /dev/sda
+---
+kind: Machine
+name: 00000000-0000-0000-0000-00000000c003
+install:
+  disk: /dev/sda
+---
+kind: Machine
+name: 00000000-0000-0000-0000-00000000d101
+install:
+  disk: /dev/sda
+---
+kind: Machine
+name: 00000000-0000-0000-0000-00000000d102
+install:
+  disk: /dev/sda

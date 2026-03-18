@@ -1,0 +1,6 @@
+# Control plane specific patch for hub-dr.
+cluster:
+  apiServer:
+    certSANs:
+      # TODO(platform): add DR API endpoint DNS names/IPs.
+      - api.hub-dr.example.internal

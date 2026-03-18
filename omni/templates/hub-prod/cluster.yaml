@@ -1,0 +1,75 @@
+# Omni cluster template for production hub.
+#
+# This template intentionally avoids provider assumptions:
+# - If your environment supports machine classes, set `machineClass` values.
+# - Otherwise, keep manual machine UUID lists in `machines`.
+#
+# Never commit secrets (tokens, private keys, passwords) in this file.
+---
+kind: Cluster
+name: hub-prod
+kubernetes:
+  # Pin to versions supported by your Omni + Talos control plane.
+  version: v1.31.0
+talos:
+  version: v1.10.0
+patches:
+  - file: omni/templates/hub-prod/patches/common/00-machine-network.yaml
+---
+kind: ControlPlane
+# Option A: machine class based scheduling (uncomment and set when available).
+# machineClass:
+#   name: prod-controlplane
+# Option B: manual machine allocation (default placeholder below).
+machines:
+  - 00000000-0000-0000-0000-00000000a001
+  - 00000000-0000-0000-0000-00000000a002
+  - 00000000-0000-0000-0000-00000000a003
+patches:
+  - file: omni/templates/hub-prod/patches/controlplane/10-extra-sans.yaml
+---
+kind: Workers
+name: workers
+# Option A: machine class based scheduling (uncomment and set when available).
+# machineClass:
+#   name: prod-worker
+# Option B: manual machine allocation (default placeholders below).
+machines:
+  - 00000000-0000-0000-0000-00000000b101
+  - 00000000-0000-0000-0000-00000000b102
+  - 00000000-0000-0000-0000-00000000b103
+patches:
+  - file: omni/templates/hub-prod/patches/worker/10-kubelet-node-labels.yaml
+updateStrategy:
+  rolling:
+    maxParallelism: 1
+---
+kind: Machine
+name: 00000000-0000-0000-0000-00000000a001
+install:
+  disk: /dev/sda
+---
+kind: Machine
+name: 00000000-0000-0000-0000-00000000a002
+install:
+  disk: /dev/sda
+---
+kind: Machine
+name: 00000000-0000-0000-0000-00000000a003
+install:
+  disk: /dev/sda
+---
+kind: Machine
+name: 00000000-0000-0000-0000-00000000b101
+install:
+  disk: /dev/sda
+---
+kind: Machine
+name: 00000000-0000-0000-0000-00000000b102
+install:
+  disk: /dev/sda
+---
+kind: Machine
+name: 00000000-0000-0000-0000-00000000b103
+install:
+  disk: /dev/sda

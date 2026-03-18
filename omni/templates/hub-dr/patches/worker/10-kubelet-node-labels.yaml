@@ -1,0 +1,5 @@
+# Worker specific patch for hub-dr.
+machine:
+  kubelet:
+    extraArgs:
+      node-labels: "topology.region=secondary,topology.site=hub-dr"

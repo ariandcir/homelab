@@ -1,0 +1,9 @@
+# Shared machine configuration patch for hub-prod.
+# Fill in management network settings for your environment.
+machine:
+  network:
+    # TODO(platform): define production network interfaces and static/DHCP strategy.
+    interfaces: []
+  # TODO(platform): set production NTP servers.
+  time:
+    servers: []

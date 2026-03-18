@@ -1,0 +1,6 @@
+# Control plane specific patch for hub-prod.
+cluster:
+  apiServer:
+    certSANs:
+      # TODO(platform): add production API endpoint DNS names/IPs.
+      - api.hub-prod.example.internal

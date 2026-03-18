@@ -1,0 +1,5 @@
+# Worker specific patch for hub-prod.
+machine:
+  kubelet:
+    extraArgs:
+      node-labels: "topology.region=primary,topology.site=hub-prod"
