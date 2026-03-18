@@ -1,0 +1,46 @@
+name: omni-template-validate
+
+on:
+  pull_request:
+    paths:
+      - 'omni/templates/**'
+      - 'scripts/render-cluster-template.sh'
+      - '.github/workflows/omni-template-validate.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'omni/templates/**'
+      - 'scripts/render-cluster-template.sh'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        template:
+          - omni/templates/lab/cluster.yaml
+          - omni/templates/hub-prod/cluster.yaml
+          - omni/templates/hub-dr/cluster.yaml
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate Omni template structure
+        run: |
+          set -euo pipefail
+          ./scripts/render-cluster-template.sh "${{ matrix.template }}" >/dev/null
+
+      - name: Next steps (success)
+        if: success()
+        run: |
+          echo "Template validation passed for ${{ matrix.template }}."
+          echo "Next step: merge the PR or run omni-template-sync for controlled rollout."
+
+      - name: Next steps (failure)
+        if: failure()
+        run: |
+          echo "Template validation failed for ${{ matrix.template }}."
+          echo "Next step: fix template schema/content and re-run this workflow."
+          exit 1

@@ -1,0 +1,77 @@
+name: tofu-plan
+
+on:
+  pull_request:
+    paths:
+      - 'infra/opentofu/**'
+      - '.github/workflows/tofu-plan.yml'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "OpenTofu environment directory name"
+        required: true
+        default: prod
+        type: choice
+        options:
+          - lab
+          - prod
+          - dr
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TARGET_ENV: ${{ github.event.inputs.environment || 'prod' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.8.8
+
+      - name: Verify target environment exists
+        run: |
+          set -euo pipefail
+          test -d "infra/opentofu/environments/${TARGET_ENV}" || {
+            echo "Missing environment directory: infra/opentofu/environments/${TARGET_ENV}";
+            echo "Next step: choose lab/prod/dr or create the environment first.";
+            exit 1;
+          }
+
+      - name: OpenTofu init (local backend)
+        working-directory: infra/opentofu/environments/${{ env.TARGET_ENV }}
+        run: |
+          set -euo pipefail
+          tofu init -backend=false -input=false
+
+      - name: OpenTofu validate
+        working-directory: infra/opentofu/environments/${{ env.TARGET_ENV }}
+        run: |
+          set -euo pipefail
+          tofu validate
+
+      - name: OpenTofu plan (safe CI preview)
+        working-directory: infra/opentofu/environments/${{ env.TARGET_ENV }}
+        run: |
+          set -euo pipefail
+          if [[ -f terraform.tfvars.example ]]; then
+            tofu plan -input=false -refresh=false -lock=false -var-file=terraform.tfvars.example -out=tfplan
+          else
+            tofu plan -input=false -refresh=false -lock=false -out=tfplan
+          fi
+
+      - name: Next steps (success)
+        if: success()
+        run: |
+          echo "OpenTofu plan completed for ${TARGET_ENV}."
+          echo "Next step: review plan output and run tofu-apply (manual dispatch) after approval."
+
+      - name: Next steps (failure)
+        if: failure()
+        run: |
+          echo "OpenTofu plan failed for ${TARGET_ENV}."
+          echo "Next step: provide missing vars/secrets and rerun tofu-plan."
+          exit 1

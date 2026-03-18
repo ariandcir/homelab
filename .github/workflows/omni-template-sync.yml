@@ -1,0 +1,81 @@
+name: omni-template-sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Template environment to sync"
+        required: true
+        default: prod
+        type: choice
+        options:
+          - prod
+          - dr
+  push:
+    branches:
+      - main
+    paths:
+      - 'omni/templates/**'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: omni-template-sync-${{ github.event.inputs.environment || 'prod' }}
+      cancel-in-progress: false
+    environment: ${{ github.event.inputs.environment || 'prod' }}
+    env:
+      TARGET_ENV: ${{ github.event.inputs.environment || 'prod' }}
+      OMNI_ENDPOINT: ${{ secrets.OMNI_ENDPOINT }}
+      OMNI_SERVICE_ACCOUNT_KEY: ${{ secrets.OMNI_SERVICE_ACCOUNT_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Fail safely when required secrets are missing
+        run: |
+          set -euo pipefail
+          if [[ -z "${OMNI_ENDPOINT:-}" || -z "${OMNI_SERVICE_ACCOUNT_KEY:-}" ]]; then
+            echo "Required Omni secrets are missing (OMNI_ENDPOINT and/or OMNI_SERVICE_ACCOUNT_KEY)."
+            echo "Next step: add both secrets to the '${TARGET_ENV}' environment before syncing templates."
+            exit 1
+          fi
+
+      - name: Select template file
+        id: template
+        run: |
+          set -euo pipefail
+          case "${TARGET_ENV}" in
+            prod) echo "path=omni/templates/hub-prod/cluster.yaml" >> "$GITHUB_OUTPUT" ;;
+            dr) echo "path=omni/templates/hub-dr/cluster.yaml" >> "$GITHUB_OUTPUT" ;;
+            *)
+              echo "Unsupported environment: ${TARGET_ENV}";
+              echo "Next step: use prod or dr.";
+              exit 1
+              ;;
+          esac
+
+      - name: Validate selected template
+        run: |
+          set -euo pipefail
+          ./scripts/render-cluster-template.sh "${{ steps.template.outputs.path }}" >/dev/null
+
+      - name: Controlled sync placeholder (no kubectl apply)
+        run: |
+          set -euo pipefail
+          echo "Template validated for ${TARGET_ENV}."
+          echo "Next step: run your approved Omni sync command/tooling in this step (for example omnictl), preserving environment protection checks."
+
+      - name: Next steps (success)
+        if: success()
+        run: |
+          echo "Omni template sync workflow completed for ${TARGET_ENV}."
+          echo "Next step: verify cluster state in Omni and monitor Flux reconciliation health."
+
+      - name: Next steps (failure)
+        if: failure()
+        run: |
+          echo "Omni template sync failed for ${TARGET_ENV}."
+          echo "Next step: resolve validation/secret issues and rerun omni-template-sync."
+          exit 1

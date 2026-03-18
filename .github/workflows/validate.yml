@@ -1,0 +1,49 @@
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install validation tooling
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install yamllint
+          sudo curl -sSL -o /usr/local/bin/kustomize "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.6.0/kustomize_v5.6.0_linux_amd64"
+          sudo chmod +x /usr/local/bin/kustomize
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.8.8
+
+      - name: Run repository validation
+        run: make validate
+
+      - name: Next steps (success)
+        if: success()
+        run: |
+          echo "Validation passed."
+          echo "Next step: open or update your PR and wait for required approvals."
+
+      - name: Next steps (failure)
+        if: failure()
+        run: |
+          echo "Validation failed."
+          echo "Next step: run 'make validate' locally, fix findings, and push updated commits."
+          exit 1

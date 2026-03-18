@@ -1,0 +1,78 @@
+name: tofu-apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "OpenTofu environment directory name"
+        required: true
+        default: prod
+        type: choice
+        options:
+          - prod
+          - dr
+      require_confirm:
+        description: "Type APPLY to continue"
+        required: true
+        type: string
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    if: ${{ github.event.inputs.require_confirm == 'APPLY' }}
+    concurrency:
+      group: tofu-apply-${{ inputs.environment }}
+      cancel-in-progress: false
+    environment: ${{ inputs.environment }}
+    env:
+      TARGET_ENV: ${{ inputs.environment }}
+      TF_TOKEN_app_terraform_io: ${{ secrets.TF_TOKEN_APP_TERRAFORM_IO }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: 1.8.8
+
+      - name: Fail safely when required secret is missing
+        run: |
+          set -euo pipefail
+          if [[ -z "${TF_TOKEN_app_terraform_io:-}" ]]; then
+            echo "Required secret TF_TOKEN_APP_TERRAFORM_IO is missing."
+            echo "Next step: add the secret to the '${TARGET_ENV}' GitHub environment, then re-run tofu-apply."
+            exit 1
+          fi
+
+      - name: OpenTofu init/plan/apply
+        working-directory: infra/opentofu/environments/${{ env.TARGET_ENV }}
+        run: |
+          set -euo pipefail
+          tofu init -input=false
+          tofu plan -input=false -out=tfplan
+          tofu apply -input=false -auto-approve tfplan
+
+      - name: Next steps (success)
+        if: success()
+        run: |
+          echo "OpenTofu apply completed for ${TARGET_ENV}."
+          echo "Next step: verify outputs and run flux reconciliation if workloads depend on new infra."
+
+      - name: Next steps (failure)
+        if: failure()
+        run: |
+          echo "OpenTofu apply failed for ${TARGET_ENV}."
+          echo "Next step: inspect logs, correct config/secrets, then re-run tofu-plan before another apply."
+          exit 1
+
+  apply-confirmation-missing:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.require_confirm != 'APPLY' }}
+    steps:
+      - name: Confirmation was not provided
+        run: |
+          echo "Apply cancelled because confirmation string was not exactly APPLY."
+          echo "Next step: re-run tofu-apply and type APPLY in the confirmation input."
+          exit 1

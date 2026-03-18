@@ -1,0 +1,46 @@
+name: flux-manifest-validate
+
+on:
+  pull_request:
+    paths:
+      - 'flux/**'
+      - '.github/workflows/flux-manifest-validate.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'flux/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install kustomize
+        run: |
+          set -euo pipefail
+          sudo curl -sSL -o /usr/local/bin/kustomize "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.6.0/kustomize_v5.6.0_linux_amd64"
+          sudo chmod +x /usr/local/bin/kustomize
+
+      - name: Validate Flux manifests
+        run: |
+          set -euo pipefail
+          kustomize build flux/clusters/lab >/dev/null
+          kustomize build flux/infrastructure/controllers >/dev/null
+          kustomize build flux/infrastructure/configs >/dev/null
+
+      - name: Next steps (success)
+        if: success()
+        run: |
+          echo "Flux manifest validation passed."
+          echo "Next step: merge PR and let Flux reconcile from GitOps source of truth."
+
+      - name: Next steps (failure)
+        if: failure()
+        run: |
+          echo "Flux manifest validation failed."
+          echo "Next step: run 'kustomize build' for failed path locally and fix invalid manifests."
+          exit 1
