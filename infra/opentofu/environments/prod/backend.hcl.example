@@ -1,0 +1,23 @@
+# S3-compatible backend example (AWS S3, MinIO, Ceph RGW, etc.)
+# Copy to backend.hcl and fill with environment-specific values.
+
+bucket = "homelab-tofu-state"
+key    = "opentofu/prod/terraform.tfstate"
+region = "us-east-1"
+
+# Encryption at rest for state file objects.
+encrypt = true
+# Optional KMS key id/alias if your object store supports KMS integration.
+# kms_key_id = "alias/tofu-state"
+
+# Native lockfile-based state locking (OpenTofu/Terraform S3 backend).
+use_lockfile = true
+
+# Uncomment for non-AWS endpoints.
+# endpoints = {
+#   s3 = "https://s3.example.internal"
+# }
+# skip_credentials_validation = true
+# skip_requesting_account_id  = true
+# skip_metadata_api_check     = true
+# force_path_style            = true

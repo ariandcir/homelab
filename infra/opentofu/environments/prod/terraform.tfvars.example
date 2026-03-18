@@ -1,0 +1,61 @@
+global_tags = {
+  environment = "prod"
+  managed_by  = "opentofu"
+  owner       = "platform"
+}
+
+network = {
+  name = "prod-core"
+  cidr = "10.20.0.0/16"
+  subnets = {
+    app_a = {
+      cidr = "10.20.10.0/24"
+      az   = "zone-a"
+      tags = { tier = "app" }
+    }
+    app_b = {
+      cidr = "10.20.11.0/24"
+      az   = "zone-b"
+      tags = { tier = "app" }
+    }
+  }
+}
+
+firewall = {
+  name = "prod-default"
+  rules = [
+    {
+      name        = "allow-ssh-admin"
+      action      = "allow"
+      protocol    = "tcp"
+      source_cidr = "10.0.0.0/8"
+      destination = "app"
+      ports       = ["22"]
+      direction   = "ingress"
+      priority    = 100
+    }
+  ]
+}
+
+dns = {
+  zone = "prod.internal"
+  records = {
+    app = {
+      type    = "A"
+      ttl     = 60
+      values  = ["10.20.10.20"]
+      comment = "placeholder until provider-specific automation is added"
+    }
+  }
+}
+
+vms = {
+  app01 = {
+    image            = "ubuntu-24.04"
+    size             = "medium"
+    subnet           = "app_a"
+    assign_public_ip = false
+    metadata         = { role = "app" }
+    startup_script   = "#!/bin/sh\necho prod-app01"
+  }
+}

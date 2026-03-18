@@ -1,0 +1,19 @@
+# S3-compatible backend example (AWS S3, MinIO, Ceph RGW, etc.)
+# Copy to backend.hcl and fill with environment-specific values.
+
+bucket = "homelab-tofu-state"
+key    = "opentofu/dr/terraform.tfstate"
+region = "us-east-1"
+
+encrypt = true
+# kms_key_id = "alias/tofu-state"
+
+use_lockfile = true
+
+# endpoints = {
+#   s3 = "https://s3.example.internal"
+# }
+# skip_credentials_validation = true
+# skip_requesting_account_id  = true
+# skip_metadata_api_check     = true
+# force_path_style            = true

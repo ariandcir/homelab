@@ -1,8 +1,17 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: validate validate-yaml validate-kustomize validate-tofu validate-secrets
+TOFU_ROOT := infra/opentofu
+TOFU_ENVS := $(TOFU_ROOT)/environments/prod $(TOFU_ROOT)/environments/dr
 
-validate: validate-yaml validate-kustomize validate-secrets
+.PHONY: fmt fmt-tofu validate validate-yaml validate-kustomize validate-secrets validate-tofu
+
+fmt: fmt-tofu
+
+fmt-tofu:
+	@echo "Formatting OpenTofu files"
+	@tofu fmt -recursive $(TOFU_ROOT)
+
+validate: validate-yaml validate-kustomize validate-secrets validate-tofu
 
 validate-yaml:
 	@echo "Linting YAML"
@@ -17,4 +26,10 @@ validate-secrets:
 	@./scripts/check-no-plaintext-secrets.sh
 
 validate-tofu:
-	@echo "TODO(iac): wire tofu validate once environment backend is finalized"
+	@echo "Validating OpenTofu environments"
+	@set -euo pipefail; \
+	for env in $(TOFU_ENVS); do \
+	  echo "-> $$env"; \
+	  tofu -chdir=$$env init -backend=false -input=false >/dev/null; \
+	  tofu -chdir=$$env validate; \
+	done
