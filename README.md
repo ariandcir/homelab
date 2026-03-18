@@ -45,6 +45,10 @@ flowchart TD
 make validate
 ```
 
+## Kubernetes GitOps details
+
+See [kubernetes/README.md](kubernetes/README.md) for the Flux-oriented cluster/infrastructure/app layering and SOPS + age guidance.
+
 ## Runbook index
 
 See [docs/runbooks/README.md](docs/runbooks/README.md) for day-2 operations.

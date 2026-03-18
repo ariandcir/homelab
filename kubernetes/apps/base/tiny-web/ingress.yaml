@@ -1,0 +1,24 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tiny-web
+  namespace: tiny-web
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - tiny-web.example.internal
+      secretName: tiny-web-tls
+  rules:
+    - host: tiny-web.example.internal
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: tiny-web
+                port:
+                  name: http

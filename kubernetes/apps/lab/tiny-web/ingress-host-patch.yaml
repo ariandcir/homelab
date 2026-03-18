@@ -1,0 +1,11 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tiny-web
+spec:
+  tls:
+    - hosts:
+        - tiny-web.lab.internal
+      secretName: tiny-web-tls
+  rules:
+    - host: tiny-web.lab.internal
