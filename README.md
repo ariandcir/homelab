@@ -49,6 +49,13 @@ make validate
 
 See [kubernetes/README.md](kubernetes/README.md) for the Flux-oriented cluster/infrastructure/app layering and SOPS + age guidance.
 
+## Secret hygiene quickstart
+
+1. Copy `.sops.yaml.example` to `.sops.yaml` and add real age recipients.
+2. Review `security/sops/README.md` for local age key locations and commit-safety rules.
+3. Install local pre-commit hooks with `make install-hooks`.
+4. Run `make validate-secrets` before pushing changes.
+
 ## Runbook index
 
 See [docs/runbooks/README.md](docs/runbooks/README.md) for day-2 operations.

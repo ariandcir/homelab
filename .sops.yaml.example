@@ -1,0 +1,6 @@
+# Example top-level SOPS policy for this repository.
+# Keep this file in sync with security/sops/.sops.yaml.example.
+creation_rules:
+  - path_regex: '^(kubernetes|flux|infra)/.*\.secret\.sops\.ya?ml$'
+    encrypted_regex: '^(data|stringData|secrets)$'
+    age: 'age1REPLACE_WITH_REAL_TEAM_PUBLIC_KEY'

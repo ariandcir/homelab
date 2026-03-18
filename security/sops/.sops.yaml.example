@@ -1,0 +1,10 @@
+# Copy this file to .sops.yaml at the repository root or to a subdirectory.
+# Replace the recipient with your team's real age public key.
+creation_rules:
+  - path_regex: '^(kubernetes|flux)/.*\.secret\.sops\.ya?ml$'
+    encrypted_regex: '^(data|stringData)$'
+    age: 'age1REPLACE_WITH_REAL_TEAM_PUBLIC_KEY'
+
+  - path_regex: '^infra/.*\.secret\.sops\.ya?ml$'
+    encrypted_regex: '^(data|stringData|secrets)$'
+    age: 'age1REPLACE_WITH_REAL_TEAM_PUBLIC_KEY'

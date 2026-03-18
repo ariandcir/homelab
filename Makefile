@@ -3,7 +3,7 @@ SHELL := /usr/bin/env bash
 TOFU_ROOT := infra/opentofu
 TOFU_ENVS := $(TOFU_ROOT)/environments/prod $(TOFU_ROOT)/environments/dr
 
-.PHONY: fmt fmt-tofu validate validate-yaml validate-kustomize validate-secrets validate-tofu
+.PHONY: fmt fmt-tofu validate validate-yaml validate-kustomize validate-secrets validate-secret-hygiene validate-tofu install-hooks
 
 fmt: fmt-tofu
 
@@ -21,9 +21,11 @@ validate-kustomize:
 	@echo "Validating kustomize overlays"
 	@kustomize build kubernetes/clusters/lab >/dev/null
 
-validate-secrets:
-	@echo "Checking for plaintext secret anti-patterns"
-	@./scripts/check-no-plaintext-secrets.sh
+validate-secrets: validate-secret-hygiene
+
+validate-secret-hygiene:
+	@echo "Running secret hygiene validation"
+	@./scripts/validate-secret-hygiene.sh
 
 validate-tofu:
 	@echo "Validating OpenTofu environments"
@@ -33,3 +35,7 @@ validate-tofu:
 	  tofu -chdir=$$env init -backend=false -input=false >/dev/null; \
 	  tofu -chdir=$$env validate; \
 	done
+
+install-hooks:
+	@git config core.hooksPath .githooks
+	@echo "Configured Git hooks path to .githooks"

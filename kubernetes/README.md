@@ -12,14 +12,16 @@ This tree uses a **Kustomize-first**, Flux-friendly structure with clear layerin
 
 ## SOPS and age key notes
 
-- Store sensitive manifests as `*.sops.yaml`; never commit plaintext secrets.
+- Store sensitive manifests as `*.secret.sops.yaml`; never commit plaintext secrets.
 - Flux decrypts SOPS files when `--decryption-provider=sops` is configured in `gotk-sync.yaml`.
 - Reference an age private key secret in `flux-system` (example secret name: `sops-age`).
 - Keep only **age public recipients** in this repo; private keys stay outside git (e.g., secure secret manager or offline vault).
 - Rotate age keys periodically and re-encrypt secrets (`sops updatekeys ...`) during rotation windows.
+- Keep `.sops.yaml` policies as examples in `security/sops/.sops.yaml.example` and `.sops.yaml.example`; copy one to `.sops.yaml` locally and fill real recipients.
 
 See also:
 
+- `security/sops/README.md`
 - `docs/adr/0002-secrets-management-sops-age.md`
 - `docs/runbooks/sops-key-rotation.md`
 

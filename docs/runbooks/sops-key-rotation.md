@@ -1,7 +1,9 @@
 # SOPS Key Rotation Runbook
 
-1. Generate new age key pair outside the repository.
-2. Update recipients in `security/sops/.sops.yaml`.
-3. Re-encrypt files and validate decryption in CI.
+1. Generate a new age key pair outside the repository (default local key path: `~/.config/sops/age/keys.txt`).
+2. Update recipients in your local `.sops.yaml` (based on `.sops.yaml.example` / `security/sops/.sops.yaml.example`).
+3. Run `sops updatekeys -r kubernetes flux infra`.
+4. Re-encrypt files and validate with `make validate-secrets`.
+5. Commit only encrypted `*.secret.sops.yaml` files.
 
-> TODO(security): define minimum overlap period for old/new recipients.
+> Never commit private age keys or decrypted secret manifests.
