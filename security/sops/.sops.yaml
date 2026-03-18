@@ -1,0 +1,7 @@
+# SOPS creation rules for this monorepo.
+# TODO(security): replace AGE recipient with your real public key.
+creation_rules:
+  - path_regex: kubernetes/.+\.sops\.ya?ml$
+    encrypted_regex: "^(data|stringData)$"
+    age:
+      - "TODO_SET_REAL_AGE_PUBLIC_KEY"

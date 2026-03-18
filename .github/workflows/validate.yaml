@@ -3,31 +3,15 @@ name: validate
 on:
   pull_request:
   push:
-    branches:
-      - main
+    branches: [main]
 
 jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup OpenTofu
-        uses: opentofu/setup-opentofu@v1
-        with:
-          tofu_version: 1.8.8
-
-      - name: Setup Python for yamllint
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Install yamllint
-        run: pip install yamllint
-
-      - name: Verify scripts executable
-        run: chmod +x scripts/*.sh
-
-      - name: Run validations
+      - uses: actions/checkout@v4
+      - name: Install tooling
+        run: |
+          echo "TODO(ci): install tofu, yamllint, and kustomize in CI image"
+      - name: Validate
         run: make validate

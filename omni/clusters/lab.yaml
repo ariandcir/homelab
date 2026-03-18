@@ -1,0 +1,15 @@
+apiVersion: omni.sidero.dev/v1alpha1
+kind: Cluster
+metadata:
+  name: lab
+spec:
+  kubernetes:
+    version: v1.30.0
+  talos:
+    version: v1.8.0
+  patches:
+    - name: global-machine-network
+      # TODO(platform): define mgmt CIDRs, DNS, and NTP servers.
+      inline: |
+        machine:
+          network: {}

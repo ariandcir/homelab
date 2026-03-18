@@ -1,8 +1,11 @@
-# OpenTofu layout
+# OpenTofu Root
 
-This directory contains provider-agnostic interfaces and environment compositions.
+This directory contains OpenTofu code for external infrastructure dependencies.
 
-- `modules/cluster_interface` exposes an interface contract for cluster-adjacent infrastructure.
-- `environments/lab` wires module inputs for the home-lab environment.
+## Conventions
 
-> TODO: Add concrete provider implementation modules only for providers with stable APIs.
+- Keep reusable modules in `modules/`.
+- Keep per-environment stacks in `environments/`.
+- Avoid placing provider credentials in this repository.
+
+> TODO(iac): document first target providers and remote state backend.

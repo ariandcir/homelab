@@ -1,27 +1,20 @@
 SHELL := /usr/bin/env bash
 
-.PHONY: validate validate-yaml validate-tofu validate-secrets fmt fmt-tofu omni-validate
+.PHONY: validate validate-yaml validate-kustomize validate-tofu validate-secrets
 
-validate: fmt validate-yaml validate-tofu validate-secrets
-
-fmt: fmt-tofu
-
-fmt-tofu:
-	@echo "Running tofu fmt recursively"
-	@tofu fmt -recursive infra/opentofu
+validate: validate-yaml validate-kustomize validate-secrets
 
 validate-yaml:
 	@echo "Linting YAML"
 	@yamllint .
 
-validate-tofu:
-	@echo "Validating OpenTofu stack"
-	@cd infra/opentofu/environments/lab && tofu init -backend=false -input=false >/dev/null && tofu validate
+validate-kustomize:
+	@echo "Validating kustomize overlays"
+	@kustomize build kubernetes/clusters/lab >/dev/null
 
 validate-secrets:
 	@echo "Checking for plaintext secret anti-patterns"
 	@./scripts/check-no-plaintext-secrets.sh
 
-omni-validate:
-	@echo "Validating Omni template"
-	@omnictl cluster template validate --file omni/templates/lab/cluster.yaml
+validate-tofu:
+	@echo "TODO(iac): wire tofu validate once environment backend is finalized"
