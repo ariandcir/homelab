@@ -1,0 +1,4 @@
+creation_rules:
+  - path_regex: flux/.*/.*secret.*\.ya?ml$
+    age: age1replacewithrealrecipientkeyxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    encrypted_regex: '^(data|stringData)$'

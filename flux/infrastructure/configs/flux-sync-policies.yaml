@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flux-sync-policy
+  namespace: flux-system
+data:
+  policy: "TODO: Define sync windows/policies if required"

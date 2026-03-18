@@ -1,0 +1,4 @@
+# TODO: customize values for your environment.
+cluster_name       = "lab"
+control_plane_cidr = "10.10.0.0/24"
+worker_cidr        = "10.10.1.0/24"

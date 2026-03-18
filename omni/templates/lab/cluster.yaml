@@ -1,0 +1,44 @@
+# Omni cluster template format uses multi-document YAML with `kind` per document.
+kind: Cluster
+name: lab
+kubernetes:
+  # TODO: pin an officially supported Kubernetes version for your Omni instance.
+  version: v1.31.0
+talos:
+  # TODO: pin an officially supported Talos version for your Omni instance.
+  version: v1.10.0
+patches:
+  - file: omni/templates/lab/patches/global-machine-network.yaml
+---
+kind: ControlPlane
+machines:
+  # TODO: replace placeholder machine UUIDs after machine enrollment.
+  - 00000000-0000-0000-0000-000000000001
+patches:
+  - file: omni/templates/lab/patches/controlplane-extra-sans.yaml
+---
+kind: Workers
+name: workers
+machines:
+  # TODO: replace placeholder machine UUIDs after machine enrollment.
+  - 00000000-0000-0000-0000-000000000101
+  - 00000000-0000-0000-0000-000000000102
+updateStrategy:
+  rolling:
+    maxParallelism: 1
+---
+kind: Machine
+name: 00000000-0000-0000-0000-000000000001
+install:
+  # TODO: confirm install target disk naming per hardware profile.
+  disk: /dev/sda
+---
+kind: Machine
+name: 00000000-0000-0000-0000-000000000101
+install:
+  disk: /dev/sda
+---
+kind: Machine
+name: 00000000-0000-0000-0000-000000000102
+install:
+  disk: /dev/sda

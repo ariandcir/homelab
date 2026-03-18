@@ -1,0 +1,6 @@
+.env
+*.tfstate
+*.tfstate.*
+.terraform/
+*.agekey
+sops-age-key.txt

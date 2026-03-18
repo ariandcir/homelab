@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: flux-components-placeholder
+  namespace: flux-system
+data:
+  note: "TODO: Replace with Flux bootstrap-managed gotk-components.yaml"

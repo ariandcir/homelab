@@ -1,0 +1,5 @@
+cluster:
+  apiServer:
+    certSANs:
+      # TODO: replace with your control-plane VIP/FQDN.
+      - api.lab.example.internal
