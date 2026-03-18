@@ -1,41 +1,42 @@
 # Platform Operations Runbook (Omni + Talos + Flux)
 
-This runbook is for day-0/day-2 cluster lifecycle operations in this repository.
+Audience: on-call/platform operators.
 
-## Conventions
+Run all commands from repo root:
 
-- **[AUTOMATED]** = run an exact command/script.
-- **[MANUAL]** = human action in Omni UI, hardware console, or secret manager.
-- Run commands from repository root: `/workspace/homelab`.
+```bash
+cd /workspace/homelab
+```
+
+Conventions used in every section:
+
+- **[AUTOMATED]** exact command sequence.
+- **[MANUAL]** human action in Omni UI, provider console, or secret manager.
 
 ---
 
-## 1) Create first cluster
+## 1) Create first cluster (`hub-prod`)
 
-1. **[AUTOMATED] Validate repo and template files.**
+1. **[AUTOMATED] Validate repo and template render.**
 
    ```bash
    make validate
    ./scripts/render-cluster-template.sh omni/templates/hub-prod/cluster.yaml
    ```
 
-2. **[MANUAL] Edit machine IDs in `omni/templates/hub-prod/cluster.yaml`.**
-   - Replace placeholder machine UUIDs under `ControlPlane.machines` and `Workers.machines` with real Omni machine UUIDs.
-   - Keep three control-plane machines.
+2. **[MANUAL] Populate machine UUIDs in template.**
+   - Open `omni/templates/hub-prod/cluster.yaml`.
+   - Set `ControlPlane.machines` to exactly 3 Omni machine UUIDs.
+   - Set `Workers.machines` to all worker UUIDs.
 
-3. **[AUTOMATED] Preview changes against Omni.**
+3. **[AUTOMATED] Preview and apply the cluster template.**
 
    ```bash
    omnictl cluster template diff --file omni/templates/hub-prod/cluster.yaml
-   ```
-
-4. **[AUTOMATED] Apply desired state.**
-
-   ```bash
    omnictl cluster template sync --file omni/templates/hub-prod/cluster.yaml
    ```
 
-5. **[AUTOMATED] Confirm cluster health.**
+4. **[AUTOMATED] Verify cluster state reached healthy.**
 
    ```bash
    omnictl cluster status hub-prod
@@ -45,78 +46,83 @@ This runbook is for day-0/day-2 cluster lifecycle operations in this repository.
 
 ## 2) Register machines with Omni
 
-1. **[MANUAL] In Omni UI, create or verify a valid join token** (Settings → Join Tokens).
-2. **[MANUAL] Download Omni installation media** (ISO/PXE image) from your Omni account.
-3. **[MANUAL] Boot each bare-metal/VM node from the Omni media.**
-4. **[AUTOMATED] Verify machines appeared in Omni state.**
+1. **[MANUAL] Create a join token in Omni UI.**
+   - Omni UI path: **Settings → Join Tokens → Create Token**.
+
+2. **[MANUAL] Boot each node with Omni install media.**
+   - Use Omni-provided ISO/PXE.
+   - Ensure node networking lets it reach Omni endpoint.
+
+3. **[AUTOMATED] Confirm machines appeared and capture UUIDs.**
 
    ```bash
-   omnictl get machines
+   omnictl get machines -o yaml > /tmp/omni-machines.yaml
    ```
 
-5. **[MANUAL] Map discovered machine UUIDs to intended roles** (control-plane vs worker), then update template YAML.
+4. **[MANUAL] Assign roles and update template YAML.**
+   - Pick 3 stable nodes for control plane.
+   - Update `omni/templates/hub-prod/cluster.yaml` machine lists.
 
 ---
 
-## 3) Sync a cluster template
+## 3) Sync a cluster template (safe apply cycle)
 
-1. **[AUTOMATED] Validate template syntax and Omni schema.**
+1. **[AUTOMATED] Render/validate template.**
 
    ```bash
    ./scripts/render-cluster-template.sh omni/templates/hub-prod/cluster.yaml
    ```
 
-2. **[AUTOMATED] Review delta before apply.**
+2. **[AUTOMATED] Diff desired vs current state.**
 
    ```bash
    omnictl cluster template diff --file omni/templates/hub-prod/cluster.yaml
    ```
 
-3. **[AUTOMATED] Sync.**
+3. **[MANUAL] Review diff output for machine replacement/destructive changes.**
+
+4. **[AUTOMATED] Apply template.**
 
    ```bash
    omnictl cluster template sync --file omni/templates/hub-prod/cluster.yaml
-   ```
-
-4. **[AUTOMATED] Check post-sync status.**
-
-   ```bash
    omnictl cluster status hub-prod
    ```
 
 ---
 
-## 4) Bootstrap Flux
+## 4) Bootstrap Flux (`hub-prod`)
 
-> Use `hub-prod` and `kubernetes/clusters/hub-prod` for production bootstrap.
+1. **[AUTOMATED] Set required environment variables from the repo remote.**
 
-1. **[MANUAL] Ensure cluster admin `kubeconfig` is available** (from Omni UI or `omnictl kubeconfig`).
-2. **[AUTOMATED] Set kube context to target cluster.**
+   ```bash
+   export GITHUB_TOKEN="$(gh auth token)"
+   export GIT_REMOTE_URL="$(git remote get-url origin)"
+   export GIT_OWNER="$(basename "$(dirname "$GIT_REMOTE_URL")" .git)"
+   export GIT_REPO="$(basename "$GIT_REMOTE_URL" .git)"
+   ```
+
+2. **[MANUAL] Ensure `hub-prod` kubeconfig context is available locally.**
+
+3. **[AUTOMATED] Bootstrap Flux to the cluster path in this repo.**
 
    ```bash
    kubectl config use-context hub-prod
-   ```
-
-3. **[AUTOMATED] Bootstrap Flux to this repository path.**
-
-   ```bash
-   export GITHUB_TOKEN='<PAT with repo admin scope>'
    flux bootstrap github \
      --token-auth \
-     --owner='<github-org-or-user>' \
-     --repository='homelab' \
+     --owner="$GIT_OWNER" \
+     --repository="$GIT_REPO" \
      --branch='main' \
      --path='kubernetes/clusters/hub-prod'
    ```
 
-4. **[AUTOMATED] Verify controllers are healthy.**
+4. **[AUTOMATED] Validate Flux controllers and objects.**
 
    ```bash
    flux check
    flux get all -A
    ```
 
-5. **[AUTOMATED] Commit generated `gotk-*.yaml` files if new/changed.**
+5. **[AUTOMATED] Commit bootstrap artifacts if changed.**
 
    ```bash
    git add kubernetes/clusters/hub-prod/flux-system
@@ -127,76 +133,84 @@ This runbook is for day-0/day-2 cluster lifecycle operations in this repository.
 
 ## 5) Rotate Omni service account credentials
 
-1. **[AUTOMATED] List service accounts and verify target account exists.**
+1. **[AUTOMATED] List service accounts and rotate target account key.**
 
    ```bash
    omnictl serviceaccount list
+   omnictl serviceaccount renew platform-automation
    ```
 
-2. **[AUTOMATED] Renew service-account key.**
+2. **[MANUAL] Immediately store new key in secret manager.**
+   - Secret key name: `OMNI_SERVICE_ACCOUNT_KEY`.
+
+3. **[MANUAL] Update all automation consumers.**
+   - GitHub Actions secrets.
+   - External schedulers/jobs.
+   - Local ops vault entries.
+
+4. **[AUTOMATED] Verify new key works.**
 
    ```bash
-   omnictl serviceaccount renew <service-account-name>
-   ```
-
-3. **[MANUAL] Store the newly printed `OMNI_SERVICE_ACCOUNT_KEY`** in your secret manager.
-4. **[MANUAL] Update CI/CD and automation secrets** to the new key.
-5. **[AUTOMATED] Smoke test automation identity.**
-
-   ```bash
-   OMNI_ENDPOINT='<omni-endpoint>' \
-   OMNI_SERVICE_ACCOUNT_KEY='<new-key>' \
+   OMNI_ENDPOINT="${OMNI_ENDPOINT}" \
+   OMNI_SERVICE_ACCOUNT_KEY="${OMNI_SERVICE_ACCOUNT_KEY}" \
    omnictl cluster status hub-prod
    ```
 
-6. **[MANUAL] Invalidate old credentials** in systems still holding the prior key.
+5. **[MANUAL] Revoke old key everywhere.**
 
 ---
 
 ## 6) Restore etcd from backup
 
-Use when control plane lost quorum or etcd is corrupted.
+Use when API is down and etcd quorum is lost/corrupt.
 
-1. **[MANUAL] Put an incident hold on all cluster changes** (stop GitOps merges and infra automation).
-2. **[AUTOMATED] Confirm etcd/control-plane failure symptoms.**
+1. **[MANUAL] Freeze change traffic.**
+   - Stop merges touching cluster config.
+   - Pause infra automation runs.
 
-   ```bash
-   talosctl --nodes <cp1-ip>,<cp2-ip>,<cp3-ip> etcd status
-   kubectl get nodes
-   ```
-
-3. **[MANUAL] Retrieve latest known-good etcd snapshot file** (for example `db.snapshot`) from backup storage.
-4. **[AUTOMATED] Recover etcd using a control-plane node.**
-
-   ```bash
-   talosctl --nodes <cp1-ip> bootstrap --recover-from ./db.snapshot
-   ```
-
-5. **[AUTOMATED] Re-check etcd and Kubernetes health.**
+2. **[AUTOMATED] Confirm etcd/quorum failure.**
 
    ```bash
    talosctl --nodes <cp1-ip>,<cp2-ip>,<cp3-ip> etcd status
-   kubectl get nodes
-   kubectl get pods -A
+   kubectl --context hub-prod get nodes
    ```
 
-6. **[AUTOMATED] Force Flux reconciliation after API recovery.**
+3. **[MANUAL] Retrieve latest known-good snapshot** to local path `/tmp/db.snapshot`.
+
+4. **[AUTOMATED] Recover on one control-plane node.**
 
    ```bash
-   flux reconcile source git flux-system -n flux-system
-   flux reconcile kustomization flux-system -n flux-system
+   talosctl --nodes <cp1-ip> bootstrap --recover-from /tmp/db.snapshot
+   ```
+
+5. **[AUTOMATED] Validate control plane recovery.**
+
+   ```bash
+   talosctl --nodes <cp1-ip>,<cp2-ip>,<cp3-ip> etcd status
+   kubectl --context hub-prod get nodes
+   kubectl --context hub-prod get pods -A
+   ```
+
+6. **[AUTOMATED] Reconcile Flux after API is stable.**
+
+   ```bash
+   flux --context=hub-prod reconcile source git flux-system -n flux-system
+   flux --context=hub-prod reconcile kustomization flux-system -n flux-system
    ```
 
 ---
 
-## 7) Rebuild a cluster in a second provider
+## 7) Rebuild a cluster in a second provider (`hub-dr`)
 
-Use `hub-dr` template as the provider-agnostic DR target.
+1. **[MANUAL] Provision replacement nodes in provider B.**
+   - Match network policy, DNS, and firewall policy from prod.
 
-1. **[MANUAL] Provision replacement nodes in second provider** (network, firewall, DNS parity with prod).
-2. **[MANUAL] Register those nodes with Omni** (see section 2).
-3. **[MANUAL] Replace machine UUIDs in `omni/templates/hub-dr/cluster.yaml`** with newly registered DR nodes.
-4. **[AUTOMATED] Validate + diff + sync DR template.**
+2. **[MANUAL] Register new nodes in Omni** (follow section 2).
+
+3. **[MANUAL] Update DR template with provider-B machine UUIDs.**
+   - File: `omni/templates/hub-dr/cluster.yaml`.
+
+4. **[AUTOMATED] Render, diff, and sync DR cluster.**
 
    ```bash
    ./scripts/render-cluster-template.sh omni/templates/hub-dr/cluster.yaml
@@ -205,50 +219,55 @@ Use `hub-dr` template as the provider-agnostic DR target.
    omnictl cluster status hub-dr
    ```
 
-5. **[AUTOMATED] Bootstrap Flux against DR cluster path.**
+5. **[AUTOMATED] Bootstrap Flux for DR cluster.**
 
    ```bash
    kubectl config use-context hub-dr
    flux bootstrap github \
      --token-auth \
-     --owner='<github-org-or-user>' \
-     --repository='homelab' \
+     --owner="$GIT_OWNER" \
+     --repository="$GIT_REPO" \
      --branch='main' \
      --path='kubernetes/clusters/hub-dr'
    ```
 
-6. **[MANUAL] Run failover checks** (ingress/DNS, app health, secret decryption, external dependencies).
+6. **[MANUAL] Execute failover checks before traffic switch.**
+   - DNS cutover readiness.
+   - Ingress/TLS verification.
+   - App health and data-path checks.
 
 ---
 
 ## 8) Recover when Omni is unavailable
 
-Goal: keep workloads running and maintain emergency cluster-admin access while Omni control plane is down.
+Goal: keep Kubernetes stable while Omni control plane is down.
 
-1. **[MANUAL] Declare Omni outage incident** and freeze template sync operations.
-2. **[AUTOMATED] Verify Kubernetes API health directly (not via Omni).**
+1. **[MANUAL] Declare Omni outage and stop template sync operations.**
+
+2. **[AUTOMATED] Confirm cluster health directly via Kubernetes API.**
 
    ```bash
    kubectl --context hub-prod get nodes
    kubectl --context hub-prod get pods -A
    ```
 
-3. **[AUTOMATED] Pause non-essential GitOps drift changes if stability is at risk.**
+3. **[AUTOMATED] Suspend non-essential Flux reconciliations if drift risk is high.**
 
    ```bash
    flux --context=hub-prod suspend kustomization --all -A
    ```
 
-4. **[MANUAL] For emergency node access, use pre-issued break-glass Talos credentials** stored in offline secret vault.
-5. **[AUTOMATED] Collect triage data for Omni vendor/internal escalation.**
+4. **[MANUAL] Use break-glass Talos credentials for emergency node operations.**
+
+5. **[AUTOMATED] Collect Omni support bundle for escalation (when API is intermittently reachable).**
 
    ```bash
-   omnictl support --cluster hub-prod --output support-hub-prod.zip
+   omnictl support --cluster hub-prod --output /tmp/support-hub-prod.zip
    ```
 
-6. **[MANUAL] After Omni recovers, resume normal operations.**
+6. **[MANUAL] When Omni is restored, resume standard operations.**
 
-7. **[AUTOMATED] Resume Flux reconciliations and validate.**
+7. **[AUTOMATED] Resume Flux and validate full convergence.**
 
    ```bash
    flux --context=hub-prod resume kustomization --all -A
@@ -261,41 +280,44 @@ Goal: keep workloads running and maintain emergency cluster-admin access while O
 ## 9) Disaster-recovery decision tree
 
 ```text
-Start
- ├─ Is Omni reachable?
+Incident start
+ ├─ Omni reachable?
  │   ├─ Yes
- │   │   ├─ Is Kubernetes API reachable?
- │   │   │   ├─ Yes -> Normal operations; reconcile drift (template diff/sync + flux reconcile)
+ │   │   ├─ Kubernetes API reachable?
+ │   │   │   ├─ Yes -> normal recovery: template diff/sync, then flux reconcile
  │   │   │   └─ No
- │   │   │      ├─ Is etcd quorum healthy? (talosctl etcd status)
- │   │   │      │   ├─ Yes -> investigate CNI/API components; avoid restore
- │   │   │      │   └─ No  -> restore etcd snapshot (Section 6)
- │   │
+ │   │   │      ├─ etcd quorum healthy (talosctl etcd status)?
+ │   │   │      │   ├─ Yes -> repair API/CNI/control-plane components; do not restore snapshot
+ │   │   │      │   └─ No  -> execute "Restore etcd from backup" (section 6)
  │   └─ No
- │      ├─ Is Kubernetes API still reachable directly?
- │      │   ├─ Yes -> run in degraded mode (Section 8), no template sync
+ │      ├─ Kubernetes API reachable directly?
+ │      │   ├─ Yes -> degraded mode: execute "Recover when Omni is unavailable" (section 8)
  │      │   └─ No
- │      │      ├─ Is recent etcd snapshot available?
- │      │      │   ├─ Yes -> restore etcd on surviving control-plane node
- │      │      │   └─ No  -> rebuild cluster in second provider (Section 7)
- │
- └─ After service restoration
-     ├─ Resume Flux
+ │      │      ├─ Recent etcd snapshot available?
+ │      │      │   ├─ Yes -> restore etcd (section 6)
+ │      │      │   └─ No  -> rebuild DR cluster in second provider (section 7)
+ └─ After stabilization
+     ├─ Resume Flux reconciliations
      ├─ Re-sync Omni templates
-     └─ Run post-incident credential rotation (Omni SA + join tokens)
+     └─ Rotate Omni/join credentials
 ```
 
 ---
 
-## Post-incident closeout checklist
+## Post-incident closeout
 
-1. **[AUTOMATED] Confirm cluster health and GitOps convergence.**
+1. **[AUTOMATED] Validate control plane, nodes, and Flux state.**
 
    ```bash
    omnictl cluster status hub-prod
-   flux --context=hub-prod get all -A
    kubectl --context hub-prod get nodes
+   flux --context=hub-prod get all -A
    ```
 
-2. **[MANUAL] Rotate any credentials exposed during incident** (Omni service accounts, join tokens, Git deploy keys).
-3. **[MANUAL] Record timeline, root cause, and corrective actions** in incident tracker.
+2. **[MANUAL] Rotate any exposed credentials.**
+   - Omni service-account keys.
+   - Omni join tokens.
+   - Git deploy/bot tokens used during incident.
+
+3. **[MANUAL] Publish incident report.**
+   - Timeline, root cause, blast radius, and follow-up actions.
